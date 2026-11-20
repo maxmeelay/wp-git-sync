@@ -84,6 +84,24 @@ Required permissions for the selected repo:
 - Contents: Read and write
 - Metadata: Read-only
 
+## WP-CLI
+
+The plugin registers a `wp git-sync` command for shell scripts and loops:
+
+- `wp git-sync export <post_id>` — export one post (content/data/meta + mapping + README) in a single commit.
+- `wp git-sync export-all [--post_types=<types>]` — export all posts for the given types (default `post,page`) in a single commit.
+- `wp git-sync import <post_id> [--content] [--data] [--meta]` — import remote files from GitHub into the post. With no flag, all three parts are imported.
+- `wp git-sync roundtrip <post_id> [--content] [--data] [--meta]` — import the requested remote parts into WordPress (default: all), then export the post back to GitHub so the repo files, `mapping.json` and `README.md` match WordPress. GitHub is authoritative for the imported parts.
+
+Example — round-trip every page's content in a shell loop:
+
+```bash
+for ID in $(wp post list --post_type=page --format=ids); do
+  echo "Processing page $ID...";
+  wp git-sync roundtrip "$ID" --content;
+done
+```
+
 ## Assumptions / requirements
 
 - WordPress server can make outbound HTTPS requests to `api.github.com` and `github.com`.
