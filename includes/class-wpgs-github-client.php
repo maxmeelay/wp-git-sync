@@ -97,7 +97,7 @@ final class WPGS_GitHub_Client {
 
 		if ( $code < 200 || $code >= 300 ) {
 			$message = isset( $data['message'] ) ? (string) $data['message'] : __( 'GitHub API error.', 'wp-git-sync' );
-			$detail = '';
+			$detail  = '';
 			if ( isset( $data['errors'] ) && is_array( $data['errors'] ) ) {
 				$error_parts = [];
 				foreach ( $data['errors'] as $error_item ) {
@@ -125,13 +125,14 @@ final class WPGS_GitHub_Client {
 				}
 			}
 
-				throw new RuntimeException(
-					sprintf(
-						/* translators: 1: HTTP status code, 2: HTTP method, 3: GitHub API endpoint, 4: Error message, 5: Optional details. */
-						esc_html__( 'GitHub API request failed (%1$s) during %2$s %3$s: %4$s%5$s', 'wp-git-sync' ),
-						esc_html( (string) $code ),
-						esc_html( $method ),
-						esc_html( $endpoint ),
+			$exception_class = 404 === $code ? WPGS_Not_Found_Exception::class : RuntimeException::class;
+			throw new $exception_class(
+				sprintf(
+					/* translators: 1: HTTP status code, 2: HTTP method, 3: GitHub API endpoint, 4: Error message, 5: Optional details. */
+					esc_html__( 'GitHub API request failed (%1$s) during %2$s %3$s: %4$s%5$s', 'wp-git-sync' ),
+					esc_html( (string) $code ),
+					esc_html( $method ),
+					esc_html( $endpoint ),
 					esc_html( $message ),
 					esc_html( $detail )
 				)

@@ -114,6 +114,10 @@ final class WPGS_CLI {
 	 * By default imports content, post data and meta. Use --content, --data
 	 * or --meta to limit which parts are imported.
 	 *
+	 * Parts whose remote file does not exist yet (the post was never exported)
+	 * are skipped with a warning; the command fails only when nothing at all
+	 * could be imported.
+	 *
 	 * ## OPTIONS
 	 *
 	 * <post_id>
@@ -138,22 +142,46 @@ final class WPGS_CLI {
 	 * @return void
 	 */
 	public function import( array $args, array $assoc_args = [] ): void {
-		$post = self::get_post_or_fail( (int) $args[0] );
+		$post  = self::get_post_or_fail( (int) $args[0] );
 		$parts = self::requested_parts( $assoc_args );
 
 		try {
-			self::pull_parts( $post, $parts );
+			$skipped = self::pull_parts( $post, $parts );
 		} catch ( Throwable $e ) {
 			WP_CLI::error( $e->getMessage() );
 		}
 
+		foreach ( $skipped as $part ) {
+			WP_CLI::warning(
+				sprintf(
+					/* translators: 1: Part name, 2: Post type, 3: Post ID. */
+					__( 'No remote %1$s file on GitHub for %2$s %3$d yet — export it first.', 'wp-git-sync' ),
+					(string) $part,
+					(string) $post->post_type,
+					(int) $post->ID
+				)
+			);
+		}
+
+		if ( count( $skipped ) === count( $parts ) ) {
+			WP_CLI::error(
+				sprintf(
+					/* translators: 1: Post type, 2: Post ID. */
+					__( 'Nothing to import: no remote files exist for %1$s %2$d yet.', 'wp-git-sync' ),
+					(string) $post->post_type,
+					(int) $post->ID
+				)
+			);
+		}
+
+		$imported = array_values( array_diff( $parts, $skipped ) );
 		WP_CLI::success(
 			sprintf(
 				/* translators: 1: Post type, 2: Post ID, 3: Comma-separated part list. */
 				__( 'Imported %3$s into %1$s %2$d from GitHub.', 'wp-git-sync' ),
 				(string) $post->post_type,
 				(int) $post->ID,
-				implode( ', ', $parts )
+				implode( ', ', $imported )
 			)
 		);
 	}
@@ -165,6 +193,11 @@ final class WPGS_CLI {
 	 * (default: content, data and meta), then exports the post back to
 	 * GitHub so the repo files, mapping.json and README.md all match
 	 * WordPress. GitHub is authoritative for the imported parts.
+	 *
+	 * Parts whose remote file does not exist yet (the post was never exported)
+	 * are skipped in the import step; the export step still runs and creates
+	 * them. This makes `roundtrip` safe to run on posts that were never
+	 * exported.
 	 *
 	 * ## OPTIONS
 	 *
@@ -193,11 +226,11 @@ final class WPGS_CLI {
 	 * @return void
 	 */
 	public function roundtrip( array $args, array $assoc_args = [] ): void {
-		$post = self::get_post_or_fail( (int) $args[0] );
+		$post  = self::get_post_or_fail( (int) $args[0] );
 		$parts = self::requested_parts( $assoc_args );
 
 		try {
-			self::pull_parts( $post, $parts );
+			$skipped = self::pull_parts( $post, $parts );
 
 			$exporter = new WPGS_Exporter( WPGS_Settings::get() );
 			$exporter->export_post( (int) $post->ID );
@@ -205,13 +238,27 @@ final class WPGS_CLI {
 			WP_CLI::error( $e->getMessage() );
 		}
 
+		foreach ( $skipped as $part ) {
+			WP_CLI::warning(
+				sprintf(
+					/* translators: 1: Part name, 2: Post type, 3: Post ID. */
+					__( 'No remote %1$s file on GitHub for %2$s %3$d yet — created by the export step.', 'wp-git-sync' ),
+					(string) $part,
+					(string) $post->post_type,
+					(int) $post->ID
+				)
+			);
+		}
+
+		$imported = array_values( array_diff( $parts, $skipped ) );
+		$imported_label = empty( $imported ) ? __( 'nothing (no remote files yet)', 'wp-git-sync' ) : implode( ', ', $imported );
 		WP_CLI::success(
 			sprintf(
 				/* translators: 1: Post type, 2: Post ID, 3: Comma-separated part list. */
 				__( 'Round-tripped %1$s %2$d (imported %3$s, exported back to GitHub).', 'wp-git-sync' ),
 				(string) $post->post_type,
 				(int) $post->ID,
-				implode( ', ', $parts )
+				$imported_label
 			)
 		);
 	}
@@ -268,17 +315,26 @@ final class WPGS_CLI {
 	 *
 	 * @param WP_Post  $post  Post.
 	 * @param string[] $parts Parts to pull: content, data, meta.
-	 * @return void
+	 * @return string[] Parts that were skipped because their remote file does
+	 *                  not exist yet (GitHub 404).
 	 */
-	private static function pull_parts( WP_Post $post, array $parts ): void {
+	private static function pull_parts( WP_Post $post, array $parts ): array {
+		$skipped = [];
 		foreach ( $parts as $part ) {
-			if ( 'content' === $part ) {
-				WPGS_Importer::pull_content( $post );
-			} elseif ( 'data' === $part ) {
-				WPGS_Importer::pull_post_data( $post );
-			} elseif ( 'meta' === $part ) {
-				WPGS_Importer::pull_post_meta( $post );
+			try {
+				if ( 'content' === $part ) {
+					WPGS_Importer::pull_content( $post );
+				} elseif ( 'data' === $part ) {
+					WPGS_Importer::pull_post_data( $post );
+				} elseif ( 'meta' === $part ) {
+					WPGS_Importer::pull_post_meta( $post );
+				}
+			} catch ( WPGS_Not_Found_Exception $e ) {
+				// The post has not been exported to GitHub yet — skip this part.
+				$skipped[] = (string) $part;
 			}
 		}
+
+		return $skipped;
 	}
 }
