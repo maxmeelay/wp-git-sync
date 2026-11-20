@@ -90,8 +90,8 @@ The plugin registers a `wp git-sync` command for shell scripts and loops:
 
 - `wp git-sync export <post_id>` — export one post (content/data/meta + mapping + README) in a single commit.
 - `wp git-sync export-all [--post_types=<types>]` — export all posts for the given types (default `post,page`) in a single commit.
-- `wp git-sync import <post_id> [--content] [--data] [--meta]` — import remote files from GitHub into the post. With no flag, all three parts are imported.
-- `wp git-sync roundtrip <post_id> [--content] [--data] [--meta]` — import the requested remote parts into WordPress (default: all), then export the post back to GitHub so the repo files, `mapping.json` and `README.md` match WordPress. GitHub is authoritative for the imported parts.
+- `wp git-sync import <post_id> [--content] [--data] [--meta]` — import remote files from GitHub into the post. With no flag, all three parts are imported. Parts whose remote file does not exist yet (post never exported) are skipped with a warning; the command fails only when nothing could be imported.
+- `wp git-sync roundtrip <post_id> [--content] [--data] [--meta]` — import the requested remote parts into WordPress (default: all), then export the post back to GitHub so the repo files, `mapping.json` and `README.md` match WordPress. GitHub is authoritative for the imported parts. Remote parts that do not exist yet are skipped in the import step and created by the export step, so `roundtrip` is safe to run on posts that were never exported.
 
 Example — round-trip every page's content in a shell loop:
 

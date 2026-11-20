@@ -64,6 +64,9 @@ final class WPGS_Importer {
 
 		try {
 			$remote_content = $provider->get_file_contents( $branch, $paths['content_path'] );
+		} catch ( WPGS_Not_Found_Exception $e ) {
+			// Remote file does not exist yet (post never exported) — keep the typed exception.
+			throw $e;
 		} catch ( Throwable $e ) {
 			/* translators: %s: Error message from GitHub fetch. */
 			throw new RuntimeException( sprintf( esc_html__( 'Unable to fetch remote files for import: %s', 'wp-git-sync' ), esc_html( $e->getMessage() ) ) );
@@ -97,6 +100,9 @@ final class WPGS_Importer {
 
 		try {
 			$remote_post_json = $provider->get_file_contents( $branch, $paths['post_path'] );
+		} catch ( WPGS_Not_Found_Exception $e ) {
+			// Remote file does not exist yet (post never exported) — keep the typed exception.
+			throw $e;
 		} catch ( Throwable $e ) {
 			/* translators: %s: Error message from GitHub fetch. */
 			throw new RuntimeException( sprintf( esc_html__( 'Unable to fetch remote files for import: %s', 'wp-git-sync' ), esc_html( $e->getMessage() ) ) );
@@ -121,6 +127,9 @@ final class WPGS_Importer {
 
 		try {
 			$remote_meta_json = $provider->get_file_contents( $branch, $paths['meta_path'] );
+		} catch ( WPGS_Not_Found_Exception $e ) {
+			// Remote file does not exist yet (post never exported) — keep the typed exception.
+			throw $e;
 		} catch ( Throwable $e ) {
 			/* translators: %s: Error message from GitHub fetch. */
 			throw new RuntimeException( sprintf( esc_html__( 'Unable to fetch remote files for import: %s', 'wp-git-sync' ), esc_html( $e->getMessage() ) ) );
