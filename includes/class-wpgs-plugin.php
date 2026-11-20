@@ -16,6 +16,7 @@ require_once __DIR__ . '/class-wpgs-auth.php';
 require_once __DIR__ . '/class-wpgs-paths.php';
 require_once __DIR__ . '/class-wpgs-sync-meta.php';
 require_once __DIR__ . '/class-wpgs-diff.php';
+require_once __DIR__ . '/class-wpgs-importer.php';
 require_once __DIR__ . '/class-wpgs-github-client.php';
 require_once __DIR__ . '/class-wpgs-github-provider.php';
 require_once __DIR__ . '/class-wpgs-exporter.php';
@@ -64,5 +65,11 @@ final class WPGS_Plugin {
 		WPGS_Settings::register();
 		WPGS_Admin::register();
 		add_action( 'post_updated', [ 'WPGS_Sync_Meta', 'mark_out_of_sync_on_post_update' ], 10, 3 );
+
+		// WP-CLI commands.
+		if ( defined( 'WP_CLI' ) && WP_CLI && class_exists( 'WP_CLI' ) ) {
+			require_once WPGS_PLUGIN_DIR . '/includes/class-wpgs-cli.php';
+			WP_CLI::add_command( 'git-sync', 'WPGS_CLI' );
+		}
 	}
 }
